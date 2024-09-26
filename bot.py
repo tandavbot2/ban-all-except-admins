@@ -177,9 +177,9 @@ async def being_devil(_, message: Message):
         global adminlist2
         adminlist2 = adminlist.copy()
         for admin2 in adminlist:
-            userinfo = adminlist[admin2]
-            if userinfo.id != starter:
-                adminlist.remove(userinfo) # or adminlist.pop(admin2)
+            userinfo = admin2  # Fixed: admin2 is already a ChatMember object
+            if userinfo.user.id != starter:  # Access the user ID through userinfo.user.id
+                adminlist.remove(userinfo)  # Remove if it's not the starter
             else:
                 adminlist.append(starter)
         if starter in adminlist:
@@ -201,15 +201,6 @@ async def being_devil(_, message: Message):
     else:
         LOGGER.warning("Not in group")
         return message.reply("Bruh, do it in a group 😐\nI might be able to do it in channels soon, however I don't see any interest in it. PM **@EDM115** for requesting that feature")
-
-# check if admin performed it
-# check admin rights
-# confirm by buttons
-# start doing it
-# note banned user ID’s in a log txt file
-# retry on FloodWait
-# send the log file to initiator (private)
-# send message with stats
 
 LOGGER.info("Bot started")
 banbot.run()
