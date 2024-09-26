@@ -121,36 +121,25 @@ async def justdoit(text, mode, chat, user, query, adminlist):
     try:
         await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
 
-        batch_size = 15
-        total_retrieved = 0
-        
-        # Retrieve chat members with batching
+        # Fetch all members
         async for member in banbot.get_chat_members(chat_id=chat):
             memberslist.append(member)
-            total_retrieved += 1
-            
-            # Log every 50 members retrieved
-            if total_retrieved % 50 == 0:
-                logger.info(f"Retrieved {total_retrieved} members so far.")
-
-            # Update the message every 200 members
-            if total_retrieved % 200 == 0:
+            if len(memberslist) % 200 == 0:  # Edit the message every 200 members
                 await action.edit(Text.PROCESSING.format(f"{len(memberslist)} members found", "⏳", text, 0, 0, 0))
+            await sleep(5)  # Adjust this delay if needed
 
-            # Wait for the batch size to reach before continuing
-            if len(memberslist) >= batch_size:
-                await sleep(5)  # Wait for 5 seconds before the next batch
-                memberslist = []  # Reset the list for the next batch
+        memberscount = len(memberslist)
+        adminscount = len(adminlist)
 
-        # After retrieval, continue with the kicking logic
+        # Exclude admins from the list
         memberslist = [member for member in memberslist if member not in adminlist]
-
+        
         actioncount = len(memberslist)
         donecount = 0
         errorcount = 0
         errorlist = []
 
-        await action.edit(Text.PROCESSING.format(total_retrieved, "Done ✅", text, donecount, actioncount, errorcount))
+        await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
 
         for member in memberslist:
             try:
@@ -159,25 +148,22 @@ async def justdoit(text, mode, chat, user, query, adminlist):
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
                 elif mode == 1:
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
-
+                
                 donecount += 1
-
+                await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+                await sleep(10)  # Adjust this delay for flood control
             except FloodWait as f:
-                logger.warning(f"Flood wait: {f.x} seconds. Waiting...")
                 await sleep(f.x)  # Wait for the specified flood wait time
             except Exception as e:
-                logger.error(f"Error processing user {useraction}: {e}")
+                LOGGER.warning(f"Error while trying to kick {useraction}: {e}")
                 errorcount += 1
                 errorlist.append(useraction)
 
             # Update progress after each action
-            await action.edit(Text.PROCESSING.format(total_retrieved, "Done ✅", text, donecount, actioncount, errorcount))
-            await sleep(5)  # Adjust this delay to help manage flood control
-
-    except TimeoutError:
-        logger.error("Operation timed out while processing members.")
+            await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
     except Exception as e:
-        logger.error(f"Error in justdoit: {e}")
+        LOGGER.error(f"Error in justdoit: {e}")
+
 
 @banbot.on_message(filters.command("fusrodah"))  # & filters.group
 async def being_devil(_, message: Message):
