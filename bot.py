@@ -12,12 +12,12 @@ from pyrogram.errors import FloodWait, RPCError
 from config import *
 
 banbot = Client(
-        "banbot",
-        api_id = Config.API_ID,
-        api_hash = Config.API_HASH,
-        bot_token = Config.BOT_TOKEN,
-        sleep_threshold = 10
-    )
+    "banbot",
+    api_id=Config.API_ID,
+    api_hash=Config.API_HASH,
+    bot_token=Config.BOT_TOKEN,
+    sleep_threshold=10
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,12 +45,12 @@ async def send_logs(_, message: Message):
         except FloodWait as e:
             await sleep(e.x)
         except RPCError as e:
-            message.reply_text(e, quote=True)
-            LOGGER.warn(f"Error in /log : {e}")
+            await message.reply_text(e, quote=True)
+            LOGGER.warning(f"Error in /log : {e}")
 
 @banbot.on_message(filters.command("help"))
 async def help_me(_, message: Message):
-    await message.reply_text(text="""
+    await message.reply_text(text="""\
 Here is the help :
 
 --Preconditions :--
@@ -72,17 +72,17 @@ Here is the help :
 
 class Buttons:
     CONFIRMATION = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Kick 🚪", callback_data="kick"),
-                InlineKeyboardButton("Ban 🕳", callback_data="ban")
-            ],
-            [
-                InlineKeyboardButton("Cancel ❌", callback_data="nope")
-            ]
-        ])
+        [
+            InlineKeyboardButton("Kick 🚪", callback_data="kick"),
+            InlineKeyboardButton("Ban 🕳", callback_data="ban")
+        ],
+        [
+            InlineKeyboardButton("Cancel ❌", callback_data="nope")
+        ]
+    ])
 
 class Text:
-    PROCESSING = """
+    PROCESSING = """\
 Retrieving members of the chat… {}
 Comparing with the admins of the chat… {}
 {} members… {}/{} ({} errors)
@@ -112,6 +112,7 @@ async def justdoit(text, mode, chat, user, query, adminlist):
     action = await banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
     await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
     
+    # Retrieve members
     async for member in banbot.get_chat_members(chat_id=chat):
         memberslist.append(member)
         await action.edit(Text.PROCESSING.format(str(len(memberslist)) + " members found", "⏳", text, 0, 0, 0))  # Updated this line
@@ -120,9 +121,8 @@ async def justdoit(text, mode, chat, user, query, adminlist):
     adminscount = len(adminlist)
     LOGGER.info(f"Admin list: {[admin.user.id for admin in adminlist]}")  # Log for debugging
 
-    for member in memberslist[:]:
-        if member in adminlist:
-            memberslist.remove(member)
+    # Remove admins from the members list
+    memberslist = [member for member in memberslist if member not in adminlist]
     
     actioncount = memberscount - adminscount
     donecount = 0
@@ -131,22 +131,29 @@ async def justdoit(text, mode, chat, user, query, adminlist):
 
     await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
 
-    for member in memberslist:
-        try:
-            useraction = member.user.id
-            if mode == 0:
-                await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
-            elif mode == 1:
-                await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
-            donecount += 1
-        except FloodWait as f:
-            await sleep(f.x)
-        except Exception as e:
-            LOGGER.warning(e)
-            errorcount += 1
-            errorlist.append(useraction)
-        await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
-    
+    batch_size = 10  # Process 10 members per batch
+    delay_between_batches = 10  # Delay of 10 seconds between batches
+
+    for i in range(0, len(memberslist), batch_size):
+        batch = memberslist[i:i + batch_size]
+        for member in batch:
+            try:
+                useraction = member.user.id
+                if mode == 0:
+                    await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
+                elif mode == 1:
+                    await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
+                donecount += 1
+            except FloodWait as f:
+                await sleep(f.x)
+            except Exception as e:
+                LOGGER.warning(e)
+                errorcount += 1
+                errorlist.append(useraction)
+            await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+        await sleep(delay_between_batches)  # Delay between batches
+
+    # Handle errors
     if errorlist:
         errorfile = open(f"errors_{chat}.txt", "w")
         for item in errorlist:
@@ -159,14 +166,14 @@ async def justdoit(text, mode, chat, user, query, adminlist):
             except FloodWait as e:
                 await sleep(e.x)
             except RPCError as e:
-                LOGGER.warn(f"Error in sending log: {e}")
+                LOGGER.warning(f"Error in sending log: {e}")
         await action.edit(f"Done ✅\nBanned {donecount} users, with {errorcount} errors. Check the file above for details.")
     else:
         await action.edit(f"Done ✅\nBanned {donecount} users")
 
-@banbot.on_message(filters.command("fusrodah")) # & filters.group
+@banbot.on_message(filters.command("fusrodah"))  # & filters.group
 async def being_devil(_, message: Message):
-    if message.chat.type == enums.ChatType.GROUP or message.chat.type == enums.ChatType.SUPERGROUP:
+    if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         starter = message.from_user.id
         cid = message.chat.id
         LOGGER.info(f"{starter} started a task in {cid}")
