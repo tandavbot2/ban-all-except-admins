@@ -114,7 +114,7 @@ async def justdoit(text, mode, chat, user, query, adminlist):
     
     async for member in banbot.get_chat_members(chat_id=chat):
         memberslist.append(member)
-        await action.edit(Text.PROCESSING.format(len(memberslist) + " members found", "⏳", text, 0, 0, 0))
+        await action.edit(Text.PROCESSING.format(str(len(memberslist)) + " members found", "⏳", text, 0, 0, 0))  # Updated this line
     
     memberscount = len(memberslist)
     adminscount = len(adminlist)
