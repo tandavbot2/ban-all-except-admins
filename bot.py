@@ -12,21 +12,12 @@ from pyrogram.errors import FloodWait, RPCError
 from config import *
 
 banbot = Client(
-        "banbot",
-        api_id = Config.API_ID,
-        api_hash = Config.API_HASH,
-        bot_token = Config.BOT_TOKEN,
-        sleep_threshold = 10
-    )
-
-"""
-async def setCommands():
-    banbot.set_bot_commands([
-        BotCommand("start", "Useless"),
-        BotCommand("help", "Useful"),
-        BotCommand("fusrodah", "Actually what you need"),
-        BotCommand("log", "For pro users only")])
-"""
+    "banbot",
+    api_id=Config.API_ID,
+    api_hash=Config.API_HASH,
+    bot_token=Config.BOT_TOKEN,
+    sleep_threshold=10
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,7 +45,7 @@ async def send_logs(_, message: Message):
         except FloodWait as e:
             await sleep(e.x)
         except RPCError as e:
-            message.reply_text(e, quote=True)
+            await message.reply_text(e, quote=True)
             LOGGER.warn(f"Error in /log : {e}")
 
 @banbot.on_message(filters.command("help"))
@@ -81,14 +72,14 @@ Here is the help :
 
 class Buttons:
     CONFIRMATION = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Kick 🚪", callback_data="kick"),
-                InlineKeyboardButton("Ban 🕳", callback_data="ban")
-            ],
-            [
-                InlineKeyboardButton("Cancel ❌", callback_data="nope")
-            ]
-        ])
+        [
+            InlineKeyboardButton("Kick 🚪", callback_data="kick"),
+            InlineKeyboardButton("Ban 🕳", callback_data="ban")
+        ],
+        [
+            InlineKeyboardButton("Cancel ❌", callback_data="nope")
+        ]
+    ])
 
 class Text:
     PROCESSING = """
@@ -112,21 +103,26 @@ async def callbacks(banbot: Client, query: CallbackQuery):
 async def justdoit(text, mode, chat, user, query):
     await banbot.delete_messages(chat_id=chat, message_ids=query)
     memberslist = []
-    action = banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
+    action = await banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
     await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
+    
     async for member in banbot.get_chat_members(chat_id=chat):
         memberslist.append(member)
-        await action.edit(Text.PROCESSING.format(len(memberslist) + " members found", "⏳", text, 0, 0, 0))
+        await action.edit(Text.PROCESSING.format(len(memberslist), "⏳", text, 0, 0, 0))
+    
     memberscount = len(memberslist)
+    
     adminscount = len(adminlist)
     for member in range(memberscount):
         if memberslist[member] in adminlist:
             memberslist.pop(member)
+
     actioncount = memberscount - adminscount
     donecount = 0
     errorcount = 0
     errorlist = []
-    await action.edit(Text.PROCESSING.format(memberscount + " members found", "Done ✅", text, donecount, actioncount, errorcount))
+
+    await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
     for member in range(actioncount):
         try:
             useraction = memberslist[member].user.id
@@ -134,20 +130,21 @@ async def justdoit(text, mode, chat, user, query):
                 await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
             elif mode == 1:
                 await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
-            donecount+=1
+            donecount += 1
         except FloodWait as f:
             await sleep(f.x)
-            member-=1
+            member -= 1
         except Exception as e:
             LOGGER.warning(e)
-            donecount+=1
-            errorcount+=1
-            errrorlist.append(useraction)
-        await action.edit(Text.PROCESSING.format(memberscount + " members found", "Done ✅", text, donecount, actioncount, errorcount))
+            donecount += 1
+            errorcount += 1
+            errorlist.append(useraction)
+        await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+    
     if len(errorlist) > 0:
         errorfile = open(f"errors_{chat}.txt", "w")
         for item in errorlist:
-            errorfile.write(item + "\n")
+            errorfile.write(str(item) + "\n")
         errorfile.close()
         with open(f"errors_{chat}.txt", "rb") as doc_f:
             try:
@@ -160,10 +157,11 @@ async def justdoit(text, mode, chat, user, query):
             except FloodWait as e:
                 await sleep(e.x)
             except RPCError as e:
-                message.reply_text(e, quote=True)
+                await banbot.send_message(chat_id=chat, text=e, quote=True)
                 LOGGER.warn(f"Error in /log : {e}")
-        return await action.edit(f"Done ✅\nBanned {donecount} users, with {errorcount} errors. Check the file above to know which User ID's we failed to process")
-    return await action.edit(f"Done ✅\nBanned {donecount} users")
+        return await action.edit(f"Done ✅\nBanned {donecount} users, with {errorcount} errors. Check the file above to know which User IDs we failed to process.")
+    
+    return await action.edit(f"Done ✅\nBanned {donecount} users.")
 
 @banbot.on_message(filters.command("fusrodah")) # & filters.group
 async def being_devil(_, message: Message):
@@ -171,36 +169,32 @@ async def being_devil(_, message: Message):
         starter = message.from_user.id
         cid = message.chat.id
         LOGGER.info(f"{starter} started a task in {cid}")
+        
         adminlist = []
         async for admin in banbot.get_chat_members(chat_id=cid, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             adminlist.append(admin)
-        global adminlist2
-        adminlist2 = adminlist.copy()
-        for admin2 in adminlist:
-            userinfo = admin2  # Fixed: admin2 is already a ChatMember object
-            if userinfo.user.id != starter:  # Access the user ID through userinfo.user.id
-                adminlist.remove(userinfo)  # Remove if it's not the starter
-            else:
-                adminlist.append(starter)
-        if starter in adminlist:
-            admin3 = adminlist[0]
-            if admin3.privileges.can_restrict_members == True:
+        
+        LOGGER.info(f"Admin list retrieved: {[admin.user.id for admin in adminlist]}")
+        
+        if starter in [admin.user.id for admin in adminlist]:
+            admin3 = adminlist[0]  # The first admin
+            if admin3.privileges.can_restrict_members:
                 botid = Config.BOT_TOKEN.split(":")[0]
                 selfuser = await banbot.get_chat_member(chat_id=cid, user_id=botid)
-                if selfuser.privileges.can_restrict_members == True:
+                if selfuser.privileges.can_restrict_members:
                     await message.reply("Confirm your action bro\nChoose either :\n• Kick all members except the admins\n• **Ban** all members except the admins\n• Cancel your task", reply_markup=Buttons.CONFIRMATION)
                 else:
                     LOGGER.warning("Bot cannot ban members")
-                    return message.reply("You need to add me as admin with the following scope : `can_restrict_members`\n__(Turn on \"Ban members\")__")
+                    return await message.reply("You need to add me as admin with the following scope : `can_restrict_members`\n__(Turn on \"Ban members\")__")
             else:
                 LOGGER.warning("User cannot ban members")
-                return message.reply("You are admin, but… You're missing the following scope : `can_restrict_members`\nAsk to a higher admin to give you the ability to ban members")
+                return await message.reply("You are admin, but… You're missing the following scope : `can_restrict_members`\nAsk a higher admin to give you the ability to ban members")
         else:
             LOGGER.warning("Not admin")
-            return message.reply("You aren't admin 😐 Don't mess around with me")
+            return await message.reply("You aren't admin 😐 Don't mess around with me")
     else:
         LOGGER.warning("Not in group")
-        return message.reply("Bruh, do it in a group 😐\nI might be able to do it in channels soon, however I don't see any interest in it. PM **@EDM115** for requesting that feature")
+        return await message.reply("Bruh, do it in a group 😐\nI might be able to do it in channels soon, however I don't see any interest in it. PM **@EDM115** for requesting that feature")
 
 LOGGER.info("Bot started")
 banbot.run()
