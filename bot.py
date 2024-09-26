@@ -114,48 +114,57 @@ async def callbacks(banbot: Client, query: CallbackQuery):
         await justdoit("Banning", 1, cid, uid, qid, adminlist)
 
 async def justdoit(text, mode, chat, user, query, adminlist):
+    LOGGER.info("Starting the 'justdoit' function.")
     await banbot.delete_messages(chat_id=chat, message_ids=query)
     memberslist = []
     action = await banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
     
     try:
         await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
+        LOGGER.info("Message edited to show 'Processing...'")
 
         # Fetch all members
         async for member in banbot.get_chat_members(chat_id=chat):
+            LOGGER.info(f"Member retrieved: {member.user.id}")
             memberslist.append(member)
             if len(memberslist) % 200 == 0:  # Edit the message every 200 members
                 await action.edit(Text.PROCESSING.format(f"{len(memberslist)} members found", "⏳", text, 0, 0, 0))
             await sleep(5)  # Adjust this delay if needed
 
+        LOGGER.info(f"Total members retrieved: {len(memberslist)}")
         memberscount = len(memberslist)
         adminscount = len(adminlist)
 
         # Exclude admins from the list
         memberslist = [member for member in memberslist if member not in adminlist]
-        
+        LOGGER.info(f"Members after excluding admins: {len(memberslist)}")
+
         actioncount = len(memberslist)
         donecount = 0
         errorcount = 0
         errorlist = []
 
         await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+        LOGGER.info("Message edited to show kicking process started")
 
         for member in memberslist:
             try:
                 useraction = member.user.id
+                LOGGER.info(f"Processing member {useraction}")
                 if mode == 0:
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
                 elif mode == 1:
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
                 
                 donecount += 1
+                LOGGER.info(f"Member {useraction} kicked/banned successfully.")
                 await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
                 await sleep(10)  # Adjust this delay for flood control
             except FloodWait as f:
+                LOGGER.warning(f"Flood wait encountered. Waiting for {f.x} seconds.")
                 await sleep(f.x)  # Wait for the specified flood wait time
             except Exception as e:
-                LOGGER.warning(f"Error while trying to kick {useraction}: {e}")
+                LOGGER.error(f"Error while trying to kick {useraction}: {e}")
                 errorcount += 1
                 errorlist.append(useraction)
 
@@ -163,6 +172,7 @@ async def justdoit(text, mode, chat, user, query, adminlist):
             await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
     except Exception as e:
         LOGGER.error(f"Error in justdoit: {e}")
+
 
 
 @banbot.on_message(filters.command("fusrodah"))  # & filters.group
