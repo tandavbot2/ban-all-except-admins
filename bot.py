@@ -113,13 +113,13 @@ async def callbacks(banbot: Client, query: CallbackQuery):
     elif query.data == "ban":
         await justdoit("Banning", 1, cid, uid, qid, adminlist)
 
-last_edit_content = None  # Keep track of the last edited content
-
 async def justdoit(text, mode, chat, user, query, adminlist):
     LOGGER.info("Starting the 'justdoit' function.")
     await banbot.delete_messages(chat_id=chat, message_ids=query)
     memberslist = []
     action = await banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
+
+    last_edit_content = None  # Declare this variable inside the function
     
     try:
         edit_content = Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0)
@@ -201,6 +201,7 @@ async def justdoit(text, mode, chat, user, query, adminlist):
 
     except Exception as e:
         LOGGER.error(f"Error in justdoit: {e}")
+
 
 @banbot.on_message(filters.command("fusrodah"))  # & filters.group
 async def being_devil(_, message: Message):
