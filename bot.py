@@ -110,66 +110,52 @@ async def justdoit(text, mode, chat, user, query, adminlist):
     await banbot.delete_messages(chat_id=chat, message_ids=query)
     memberslist = []
     action = await banbot.send_message(chat_id=chat, text="`Processing… ⏳`")
-    await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
     
-    # Retrieve members
-    async for member in banbot.get_chat_members(chat_id=chat):
-        memberslist.append(member)
-        await action.edit(Text.PROCESSING.format(str(len(memberslist)) + " members found", "⏳", text, 0, 0, 0))  # Updated this line
-    
-    memberscount = len(memberslist)
-    adminscount = len(adminlist)
-    LOGGER.info(f"Admin list: {[admin.user.id for admin in adminlist]}")  # Log for debugging
+    try:
+        await action.edit(Text.PROCESSING.format("⏳", "⏳", text, 0, 0, 0))
 
-    # Remove admins from the members list
-    memberslist = [member for member in memberslist if member not in adminlist]
-    
-    actioncount = memberscount - adminscount
-    donecount = 0
-    errorcount = 0
-    errorlist = []
+        # Fetch all members
+        async for member in banbot.get_chat_members(chat_id=chat):
+            memberslist.append(member)
+            await action.edit(Text.PROCESSING.format(f"{len(memberslist)} members found", "⏳", text, 0, 0, 0))
+            
+            # Introduce a small delay after processing each member
+            await sleep(2)  # You can adjust this delay
 
-    await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+        memberscount = len(memberslist)
+        adminscount = len(adminlist)
 
-    batch_size = 10  # Process 10 members per batch
-    delay_between_batches = 10  # Delay of 10 seconds between batches
+        # Exclude admins from the list
+        memberslist = [member for member in memberslist if member not in adminlist]
+        
+        actioncount = len(memberslist)
+        donecount = 0
+        errorcount = 0
+        errorlist = []
 
-    for i in range(0, len(memberslist), batch_size):
-        batch = memberslist[i:i + batch_size]
-        for member in batch:
+        await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+
+        for member in memberslist:
             try:
                 useraction = member.user.id
                 if mode == 0:
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction, until_date=datetime.now() + timedelta(seconds=31))
                 elif mode == 1:
                     await banbot.ban_chat_member(chat_id=chat, user_id=useraction)
+                
                 donecount += 1
             except FloodWait as f:
-                await sleep(f.x)
+                await sleep(f.x)  # Wait for the specified flood wait time
             except Exception as e:
                 LOGGER.warning(e)
                 errorcount += 1
                 errorlist.append(useraction)
-            await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
-        await sleep(delay_between_batches)  # Delay between batches
 
-    # Handle errors
-    if errorlist:
-        errorfile = open(f"errors_{chat}.txt", "w")
-        for item in errorlist:
-            errorfile.write(f"{item}\n")
-        errorfile.close()
-        with open(f"errors_{chat}.txt", "rb") as doc_f:
-            try:
-                await banbot.send_document(chat_id=chat, document=doc_f, file_name=doc_f.name)
-                LOGGER.info(f"Error log file sent to {chat}")
-            except FloodWait as e:
-                await sleep(e.x)
-            except RPCError as e:
-                LOGGER.warning(f"Error in sending log: {e}")
-        await action.edit(f"Done ✅\nBanned {donecount} users, with {errorcount} errors. Check the file above for details.")
-    else:
-        await action.edit(f"Done ✅\nBanned {donecount} users")
+            # Update progress after each action
+            await action.edit(Text.PROCESSING.format(memberscount, "Done ✅", text, donecount, actioncount, errorcount))
+            await sleep(5)  # Adjust this delay to help manage flood control
+    except Exception as e:
+        LOGGER.error(f"Error in justdoit: {e}")
 
 @banbot.on_message(filters.command("fusrodah"))  # & filters.group
 async def being_devil(_, message: Message):
