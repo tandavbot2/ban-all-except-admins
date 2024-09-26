@@ -1,5 +1,9 @@
 import os
 
+
+class Text:
+    PROCESSING = "{} members found {} {} (Done: {} / Total: {} | Errors: {})"
+
 class Config(object):
     API_ID = int(os.environ.get("API_ID"))
     API_HASH = os.environ.get("API_HASH")
